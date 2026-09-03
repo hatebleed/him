@@ -54,6 +54,32 @@ const envSchema = z.object({
   NOTIFICATION_PROVIDER: z.enum(["in-app", "none"]).default("in-app"),
   EMAIL_PROVIDER: z.enum(["console", "none"]).default("console"),
   MAPS_PROVIDER: z.enum(["none", "maplibre"]).default("none"),
+  /**
+   * FiveM integration.
+   *
+   * The in-game resource exchanges a citizen id for a short-lived access
+   * token at `POST /api/integrations/fivem/handshake`. Requests are
+   * authenticated with a shared secret; the token is what the game client
+   * sends, so the secret never reaches a player's machine.
+   */
+  FIVEM_API_KEY: z.string().default(""),
+  /** Lifetime of an in-game access token, in hours. */
+  FIVEM_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(12),
+  /**
+   * Create (and link) a user the first time an unknown citizen id opens the
+   * MDT. Off by default: identities are linked deliberately by an
+   * administrator, because a provisioned account inherits its job's role.
+   */
+  FIVEM_AUTO_PROVISION: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  /**
+   * Job -> role key mapping used when provisioning, as JSON, e.g.
+   *   {"police":"officer","ambulance":"medic"}
+   * An administrator can override it with the `fivem.jobRoles` setting.
+   */
+  FIVEM_JOB_ROLES: z.string().default("{}"),
 });
 
 const parsed = envSchema.safeParse({
@@ -82,6 +108,10 @@ const parsed = envSchema.safeParse({
   NOTIFICATION_PROVIDER: process.env.NOTIFICATION_PROVIDER,
   EMAIL_PROVIDER: process.env.EMAIL_PROVIDER,
   MAPS_PROVIDER: process.env.MAPS_PROVIDER,
+  FIVEM_API_KEY: process.env.FIVEM_API_KEY,
+  FIVEM_TOKEN_TTL_HOURS: process.env.FIVEM_TOKEN_TTL_HOURS,
+  FIVEM_AUTO_PROVISION: process.env.FIVEM_AUTO_PROVISION,
+  FIVEM_JOB_ROLES: process.env.FIVEM_JOB_ROLES,
 });
 
 if (!parsed.success) {

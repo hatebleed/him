@@ -7,6 +7,7 @@ import { type NextRequest } from "next/server";
 import { getSessionUser, type AuthenticatedUser } from "@/lib/auth/session";
 import { loadOperator, passwordAuthEnabled } from "@/lib/auth/operator";
 import { AppError } from "@/lib/errors";
+import { bearerToken, userForIntegrationToken } from "@/server/integrations/token-request";
 
 import { loadUserPermissions } from "./permissions/service";
 
@@ -65,7 +66,15 @@ export function userAgent(request?: NextRequest): string | null {
  * attributed to the configured operator account. Otherwise it comes from the
  * signed-in session cookie. Either way the result is a real user record.
  */
-async function currentUser(): Promise<AuthenticatedUser | null> {
+async function currentUser(request?: NextRequest): Promise<AuthenticatedUser | null> {
+  // An integration token (an in-game operator) identifies the request on its
+  // own: no cookie, and never a fall-through to the ambient session.
+  const token = request ? bearerToken(request) : null;
+  if (token) {
+    const user = await userForIntegrationToken(token);
+    if (!user) throw AppError.unauthenticated("That access token is invalid or has expired.");
+    return user;
+  }
   if (!passwordAuthEnabled()) return loadOperator();
   return getSessionUser();
 }
@@ -86,13 +95,13 @@ async function buildContext(user: AuthenticatedUser, request?: NextRequest): Pro
 
 /** Resolves the security context for the current request. */
 export async function resolveContext(request?: NextRequest): Promise<RequestContext> {
-  const user = await currentUser();
+  const user = await currentUser(request);
   if (!user) throw AppError.unauthenticated();
   return buildContext(user, request);
 }
 
 export async function resolveOptionalContext(request?: NextRequest): Promise<RequestContext | null> {
-  const user = await currentUser();
+  const user = await currentUser(request);
   if (!user) return null;
   return buildContext(user, request);
 }

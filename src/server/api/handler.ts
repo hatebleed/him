@@ -7,6 +7,7 @@ import { AppError, requestIdFrom, toApiError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { resolveContext, resolveOptionalContext, runWithContext, type RequestContext } from "@/server/context";
 import { assertSameOrigin } from "@/server/security/csrf";
+import { isIntegrationRequest } from "@/server/integrations/token-request";
 
 export { created, noContent, ok } from "@/lib/errors";
 
@@ -26,7 +27,9 @@ export function route<Params extends Record<string, string> = Record<string, nev
     try {
       // State-changing requests must originate from this site (or a configured
       // trusted origin); see src/server/security/csrf.ts.
-      if (env.CSRF_PROTECTION) assertSameOrigin(request);
+      // Integration tokens are not browser credentials, so an in-game client
+      // (which sends an opaque origin) is not a forgery vector.
+      if (env.CSRF_PROTECTION && !isIntegrationRequest(request)) assertSameOrigin(request);
       const response = await handler(request, segment);
       response.headers.set("x-request-id", requestId);
       return response;

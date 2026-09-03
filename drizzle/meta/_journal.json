@@ -8,6 +8,13 @@
       "when": 1788282607844,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788458924278,
+      "tag": "0001_clever_joseph",
+      "breakpoints": true
     }
   ]
 }

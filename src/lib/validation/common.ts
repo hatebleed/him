@@ -86,6 +86,28 @@ export class QueryValidationError extends Error {
   }
 }
 
+/** Validation error for request bodies, carrying per-field issues. */
+export class BodyValidationError extends Error {
+  readonly code = "VALIDATION_ERROR";
+  readonly status = 400;
+  readonly details: Record<string, string[] | undefined>;
+
+  constructor(details: Record<string, string[] | undefined>, message = "The request body is invalid.") {
+    super(message);
+    this.name = "BodyValidationError";
+    this.details = details;
+  }
+}
+
+/** Parses a request body with a schema, throwing a structured 400. */
+export function parseBody<T extends z.ZodTypeAny>(schema: T, raw: unknown): z.infer<T> {
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    throw new BodyValidationError(result.error.flatten().fieldErrors);
+  }
+  return result.data;
+}
+
 /** Parses a URL search string with a schema, throwing a structured 400. */
 export function parseQuery<T extends z.ZodTypeAny>(schema: T, params: URLSearchParams): z.infer<T> {
   const raw: Record<string, string> = {};

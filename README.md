@@ -12,6 +12,7 @@ Everything in this repository is fictional demonstration data. No real personal 
 |---|---|
 | **Records** | People (identifiers, contacts, addresses), vehicles, incidents, cases, reports with immutable version history, tasks with comments, warrants, alerts, BOLOs, evidence with append-only chain of custody, units |
 | **Operations** | Dispatch console (create calls, assign units, unit status, escalate call → incident), live operations board, unit roster with inline status changes |
+| **FiveM (qbox)** | `fivem/qbx_mdt` resource: players open the MDT in game with `/mdt`; the platform exchanges a character for a short-lived token, so in-game permissions are exactly the linked account's. Previewable in-app at `/fivem-preview` |
 | **Operations console** | **Ops wall** (schematic sector view with live units and open incidents, readiness gauges, event ticker, demand heatmap), **association graph** (multi-hop link analysis across people, vehicles, incidents, cases and evidence), **shift briefing** (generated roll-call handover for any 1–72 hour period) |
 | **Communications** | Channels and direct messages with real persistence, read state and mentions |
 | **Search** | Global, permission-filtered search across every record type, plus a command palette (<kbd>Cmd/Ctrl</kbd>+<kbd>K</kbd>) with page shortcuts |
@@ -53,6 +54,39 @@ The design language lives in `src/components/ops/*` and the console layer of
 `src/app/globals.css`, and is built entirely from the existing theme variables -
 re-branding and light mode keep working. Two widgets (**Demand by day and hour**,
 **Sector view**) are available in the dashboard catalogue and default layout.
+
+---
+
+## 1.2 FiveM (qbox) resource
+
+The platform ships an in-game resource for **qbox** servers in `fivem/qbx_mdt`.
+Players open a tablet with `/mdt` (or a keybind) and work live records: the
+operations wall, unit status, search and the shift briefing.
+
+```
+player ──/mdt──▶ client.lua ──▶ server.lua ──handshake──▶ platform
+                     │                                       │
+                     │            { token, operator }         │
+                     ▼                                       ▼
+              html/index.html ──iframe + mdt:init──▶  /nui  (the tablet)
+```
+
+- **Identity is explicit.** A citizen id is linked to an account by an
+  administrator (`POST /api/integrations/fivem/identities`) or, optionally,
+  provisioned on first use with a job → role mapping. An unlinked character gets
+  nothing.
+- **Permissions are the account's.** The token carries the linked user's roles,
+  so a cadet and a supervisor see different data with the same job. Disabling an
+  account takes effect immediately.
+- **The key never reaches a player.** Only the game server performs the
+  handshake (`X-API-Key`, constant-time compared); the client receives a token
+  that expires after `FIVEM_TOKEN_TTL_HOURS`.
+- **Preview before you install.** `/fivem-preview` runs the real `/nui` route in
+  a simulated game screen, including the character hand-off, link management and
+  the close/notify bridge - what you see is what players get.
+
+Install notes, configuration reference, linking and troubleshooting are in
+[`fivem/README.md`](fivem/README.md).
 
 ---
 
@@ -278,18 +312,18 @@ Password for every seeded account: **`DemoPass123!`**
 ## 9. Testing
 
 ```bash
-npm test                                   # unit + integration + security (72 tests)
+npm test                                   # unit + integration + security (78 tests)
 npm run dev &                              # or npm start
-RUN_E2E=1 npm run test:e2e                 # acceptance journey + operations console + cookie/CSRF over HTTP
+RUN_E2E=1 npm run test:e2e                 # acceptance journey + operations console + FiveM bridge + cookie/CSRF over HTTP
 RUN_E2E=1 E2E_BASE_URL=http://host:3000 npm run test:e2e
 ```
 
 | Suite | Covers |
 |---|---|
 | `tests/unit` | Conditional-rule engine, validation schemas, shared utilities, error envelope, password policy, **session cookie policy** (HTTPS, proxies, embedded frames, overrides), **cross-site request forgery guard**, **console geometry** (sector projection, declutter, temporal binning, deterministic graph layout) |
-| `tests/integration` | Real services against the real database: permissions, person creation with timeline/audit, incident linking, report lifecycle and versioning, custom-field validation, configuration reads |
+| `tests/integration` | Real services against the real database: permissions, person creation with timeline/audit, incident linking, report lifecycle and versioning, custom-field validation, configuration reads, **FiveM handshake and character linking** |
 | `tests/security` | Password hashing/salting/verification, token hashing, upload magic-byte and size validation, server-side authorisation, role-permission guarantees |
-| `tests/e2e` | The full journey: sign in → shell → search → create/link person + vehicle + incident → write/submit/approve report → workflow notification → timeline → audit → admin (custom field, terminology, module toggle, role permissions) → 403 for a read-only user; plus the operations console (ops wall payload, briefing, association graph, temporal analytics, page rendering) |
+| `tests/e2e` | The full journey: sign in → shell → search → create/link person + vehicle + incident → write/submit/approve report → workflow notification → timeline → audit → admin (custom field, terminology, module toggle, role permissions) → 403 for a read-only user; plus the operations console (ops wall payload, briefing, association graph, temporal analytics, page rendering) and the FiveM integration (secret-gated handshake, character linking, token-scoped reads and writes, forged-token rejection) |
 
 The end-to-end suite also covers the cookie matrix (`SameSite=None; Secure; Partitioned` when embedded, `Lax` on plain HTTP), cross-site write rejection, and - under `AUTH_MODE=none` - loading the application with no credentials while every credential route 404s. Mode-specific cases skip themselves, so the suite is correct against either configuration. It is skipped unless `RUN_E2E=1` because it needs a live server and a seeded database.
 

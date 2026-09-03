@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MDT</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!--
+      Host page for the in-game MDT.
+
+      The interface itself is served by the platform (one deployment, two front
+      ends: the web console and this tablet). That page cannot call the
+      resource's NUI callbacks itself, because those are only reachable from
+      this resource's own nui:// origin — so this page brokers:
+
+          game  --SendNUIMessage-->  here  --postMessage-->  tablet
+          tablet --postMessage-->    here  --NUI callback-->  game
+
+      Nothing else lives here on purpose: no data, no tokens, no logic.
+    -->
+    <div id="boot" class="boot">
+      <div class="boot__mark">MDT</div>
+      <p class="boot__line">Connecting to dispatch…</p>
+    </div>
+    <iframe id="tablet" class="tablet" title="MDT" allow="clipboard-read; clipboard-write"></iframe>
+    <script src="bridge.js"></script>
+  </body>
+</html>

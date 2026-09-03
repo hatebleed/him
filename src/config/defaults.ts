@@ -410,6 +410,7 @@ export const DEFAULT_NAVIGATION: NavigationSeed[] = [
   { key: "nav.alerts", label: "Alerts", href: "/alerts", icon: "BellRing", moduleKey: "alerts", permission: "alerts.view", group: "work", sortOrder: 130 },
   { key: "nav.bolos", label: "BOLOs", href: "/bolos", icon: "ScanEye", moduleKey: "bolos", permission: "bolos.view", group: "work", sortOrder: 140 },
   { key: "nav.communications", label: "Communications", href: "/communications", icon: "MessageSquare", moduleKey: "communications", permission: "communications.view", group: "work", sortOrder: 150 },
+  { key: "nav.fivemPreview", label: "FiveM Preview", href: "/fivem-preview", icon: "Gamepad2", permission: "dispatch.view", group: "system", sortOrder: 850 },
   { key: "nav.admin", label: "Administration", href: "/admin", icon: "Settings", moduleKey: "admin", permission: "admin.access", group: "system", sortOrder: 900, isSystem: true },
 ];
 

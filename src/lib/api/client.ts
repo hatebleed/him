@@ -65,6 +65,23 @@ function isEmbedded(): boolean {
 }
 
 /**
+ * Access token presented to the API.
+ *
+ * The in-game UI authenticates with a short-lived integration token instead of
+ * a session cookie (the game's browser has no usable cookie jar for this site).
+ * The web application never sets it, so both front-ends share one client.
+ */
+let apiToken: string | null = null;
+
+export function setApiToken(token: string | null): void {
+  apiToken = token && token.trim() ? token.trim() : null;
+}
+
+export function getApiToken(): string | null {
+  return apiToken;
+}
+
+/**
  * Single client-side entry point for API calls.
  * Every response is unwrapped from the `{ data }` envelope and every failure
  * is surfaced as a typed `ApiError` carrying the server's request id.
@@ -75,6 +92,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     headers: {
       "Content-Type": "application/json",
       ...(isEmbedded() ? { "x-embedded": "1" } : {}),
+      ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
       ...options.headers,
     },
     body: options.body instanceof FormData ? options.body : options.body ? JSON.stringify(options.body) : undefined,
