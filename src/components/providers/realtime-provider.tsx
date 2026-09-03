@@ -39,10 +39,11 @@ export function RealtimeProvider() {
       });
 
       source.addEventListener("message.created", () => invalidate(["channel"], ["communications"]));
-      source.addEventListener("unit.status.changed", () => invalidate(["units"], ["dispatch"], ["operations"]));
-      source.addEventListener("call.created", () => invalidate(["calls"], ["dispatch"], ["operations"]));
-      source.addEventListener("call.updated", () => invalidate(["calls"], ["dispatch"]));
-      source.addEventListener("incident.updated", () => invalidate(["incidents"], ["analytics"]));
+      source.addEventListener("unit.status.changed", () => invalidate(["units"], ["dispatch"], ["operations"], ["ops-wall"], ["briefing"]));
+      source.addEventListener("call.created", () => invalidate(["calls"], ["dispatch"], ["operations"], ["ops-wall"], ["briefing"]));
+      source.addEventListener("call.updated", () => invalidate(["calls"], ["dispatch"], ["ops-wall"], ["briefing"]));
+      source.addEventListener("incident.updated", () => invalidate(["incidents"], ["analytics"], ["ops-wall"], ["briefing"], ["link-graph"]));
+      source.addEventListener("record.updated", () => invalidate(["ops-wall"], ["link-graph"], ["briefing"]));
 
       source.onerror = () => {
         source?.close();

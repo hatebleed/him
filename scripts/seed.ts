@@ -71,7 +71,7 @@ import {
   workflowConditions,
   workflows,
 } from "../src/lib/db/schema";
-import { DEFAULT_CATEGORIES, DEFAULT_NAVIGATION, DEFAULT_ROLES, DEFAULT_STATUSES, DEFAULT_TERMINOLOGY, DEFAULT_DASHBOARD_WIDGETS } from "../src/config/defaults";
+import { DEFAULT_CATEGORIES, DEFAULT_NAVIGATION, DEFAULT_ROLES, DEFAULT_STATUSES, DEFAULT_TERMINOLOGY, DEFAULT_DASHBOARD_WIDGETS, SECTOR_DISTRICTS, districtFromText } from "../src/config/defaults";
 import { MODULE_DEFINITIONS } from "../src/config/modules";
 import { PERMISSION_CATALOGUE } from "../src/config/permissions";
 import { hashPassword } from "../src/lib/auth/password";
@@ -350,20 +350,38 @@ export async function seed() {
     }
   }
 
-  console.log("Seeding units...");
+  /**
+ * Places a record inside the district named in its location text.
+ *
+ * The console draws a schematic sector view, so the seeder only needs a stable
+ * point in the right district; the jitter keeps overlapping records readable.
+ */
+function placeInDistrict(location: string | null | undefined): { latitude: number; longitude: number } {
+  const district = districtFromText(location) ?? SECTOR_DISTRICTS[randomInt(0, SECTOR_DISTRICTS.length - 1)]!;
+  return {
+    latitude: Number((district.latitude + (random() - 0.5) * 0.012).toFixed(6)),
+    longitude: Number((district.longitude + (random() - 0.5) * 0.018).toFixed(6)),
+  };
+}
+
+console.log("Seeding units...");
   const unitRows = await db
     .insert(units)
     .values(
-      Array.from({ length: 10 }, (_, index) => ({
-        name: `Unit ${index + 1}`,
-        callsign: `${["A", "B", "C"][index % 3]!}${index + 10}`,
-        departmentId: departmentIdByCode.get(index % 3 === 0 ? "SUP" : "OPS") ?? null,
-        status: pick(["AVAILABLE", "AVAILABLE", "EN_ROUTE", "ON_SCENE", "BUSY", "OFF_DUTY"]),
-        statusUpdatedAt: daysAgo(0, randomInt(0, 6)),
-        location: pick(["Depot", "Northgate", "Harbour Road", "Ridgeway", "On patrol"]),
-        vehicleId: index < 8 ? vehicleIds[index % vehicleIds.length]! : null,
-        active: true,
-      })),
+      Array.from({ length: 10 }, (_, index) => {
+        const location = pick(["Depot, Northgate", "Northgate", "Harbour Road, Kestrel Bay", "Ridgeway", "On patrol, Ashcombe", "Silverport", "South Quay"]);
+        return {
+          name: `Unit ${index + 1}`,
+          callsign: `${["A", "B", "C"][index % 3]!}${index + 10}`,
+          departmentId: departmentIdByCode.get(index % 3 === 0 ? "SUP" : "OPS") ?? null,
+          status: pick(["AVAILABLE", "AVAILABLE", "EN_ROUTE", "ON_SCENE", "BUSY", "OFF_DUTY"]),
+          statusUpdatedAt: daysAgo(0, randomInt(0, 6)),
+          location,
+          ...placeInDistrict(location),
+          vehicleId: index < 8 ? vehicleIds[index % vehicleIds.length]! : null,
+          active: true,
+        };
+      }),
     )
     .returning();
 
@@ -615,7 +633,9 @@ export async function seed() {
       Array.from({ length: 20 }, (_, index) => {
         const priority = pick(["LOW", "MEDIUM", "MEDIUM", "HIGH", "CRITICAL"]);
         const status = pick(["NEW", "ASSIGNED", "IN_PROGRESS", "IN_PROGRESS", "PENDING", "CLOSED", "CLOSED"]);
-        const reported = daysAgo(randomInt(0, 60), randomInt(0, 23));
+        // A realistic share of incidents is recent, so short briefing windows show live work.
+        const reported = index % 4 === 0 ? new Date(Date.now() - randomInt(1, 20) * 60 * 60 * 1000) : daysAgo(randomInt(1, 60), randomInt(0, 23));
+        const location = `${randomInt(1, 180)} ${pick(STREETS)}, ${pick(CITIES)}`;
         return {
           reference: reference("INC", index + 1),
           title: INCIDENT_TITLES[index % INCIDENT_TITLES.length]!,
@@ -624,7 +644,8 @@ export async function seed() {
           priority,
           categoryId: null,
           departmentId: departmentIdByCode.get(pick(["OPS", "INV", "SUP"])) ?? null,
-          location: `${randomInt(1, 180)} ${pick(STREETS)}, ${pick(CITIES)}`,
+          location,
+          ...placeInDistrict(location),
           reportedAt: reported,
           occurredAt: new Date(reported.getTime() - randomInt(1, 12) * 60 * 60 * 1000),
           closedAt: closedStatuses.includes(status) ? new Date(reported.getTime() + randomInt(2, 48) * 60 * 60 * 1000) : null,

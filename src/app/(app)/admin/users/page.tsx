@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { PageHeader } from "@/components/layout/page-header";
 import { DataTable, type DataTableColumn } from "@/components/tables/data-table";
 import { useListQuery } from "@/lib/hooks/use-list-query";
+import { useSession } from "@/components/providers/session-provider";
 import { formatRelative } from "@/lib/utils";
 
 type UserRow = {
@@ -32,6 +33,9 @@ type RoleOption = { id: string; key: string; name: string };
 /** User administration: create, edit, reset passwords and revoke sessions. */
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  // Sessions only exist in password mode; there is nothing to revoke otherwise.
+  const passwordAuth = (session?.security?.authMode ?? "password") === "password";
   const { query, setQuery, apiParams } = useListQuery({ pageSize: 25 });
   const [open, setOpen] = React.useState(false);
   const [form, setForm] = React.useState({ name: "", email: "", username: "", password: "", jobTitle: "", badgeNumber: "", roleIds: [] as string[] });
@@ -151,14 +155,16 @@ export default function AdminUsersPage() {
             <Button size="sm" variant="ghost" onClick={() => resetPassword.mutate(row.id)} aria-label="Reset password">
               <KeyRound />
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => revoke.mutate(row.id)}>
-              Sign out
-            </Button>
+            {passwordAuth ? (
+              <Button size="sm" variant="ghost" onClick={() => revoke.mutate(row.id)}>
+                Sign out
+              </Button>
+            ) : null}
           </span>
         ),
       },
     ],
-    [revoke, resetPassword, setStatus],
+    [passwordAuth, revoke, resetPassword, setStatus],
   );
 
   return (

@@ -36,7 +36,7 @@ export default function DashboardPage() {
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ["analytics", "dashboard"],
-    queryFn: () => api.get<DashboardData>("/api/analytics", { trend: "true", priority: "true" }),
+    queryFn: () => api.get<DashboardData>("/api/analytics", { trend: "true", priority: "true", series: "true", heatmap: "true" }),
     refetchInterval: 120_000,
   });
 

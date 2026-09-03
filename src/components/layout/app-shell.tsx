@@ -104,7 +104,7 @@ export function AppShell({ children, initialSession }: { children: React.ReactNo
           onToggleCollapsed={toggleCollapsed}
           showMobileNavButton={!data?.config?.navigation?.length}
         />
-        <main id="main" className="flex-1 px-4 pb-10 pt-4 sm:px-6">
+        <main id="main" className="ops-backdrop flex-1 px-4 pb-10 pt-4 sm:px-6">
           {children}
         </main>
       </div>

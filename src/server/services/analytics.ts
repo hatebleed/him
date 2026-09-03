@@ -1,10 +1,10 @@
 import "server-only";
 
 import { and, count, desc, eq, gte, inArray, isNull, notInArray, sql, type SQL } from "drizzle-orm";
-import type { PgTable } from "drizzle-orm/pg-core";
+import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 
 import { db } from "@/lib/db/client";
-import { alerts, evidence, incidents, reports, tasks, timelineEntries, units } from "@/lib/db/schema";
+import { alerts, calls, evidence, incidents, reports, tasks, timelineEntries, units } from "@/lib/db/schema";
 import { assertCan, type RequestContext } from "@/server/context";
 import { getClosedStatuses } from "@/server/configuration/service";
 
@@ -95,6 +95,86 @@ export const analyticsService = {
       result[key] = await loader();
     }
     return result;
+  },
+
+  /**
+   * Incidents binned by day of week and hour of day.
+   * Reveals when an area is actually busy, which a daily trend line hides.
+   */
+  async temporalHeatmap(ctx: RequestContext, days = 90) {
+    assertCan(ctx, "analytics.view");
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const rows = await db
+      .select({ at: incidents.occurredAt, reportedAt: incidents.reportedAt })
+      .from(incidents)
+      .where(and(isNull(incidents.deletedAt), gte(incidents.reportedAt, since)))
+      .limit(5000);
+
+    const matrix = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
+    let total = 0;
+    for (const row of rows) {
+      const value = row.at ?? row.reportedAt;
+      if (!value) continue;
+      const day = (value.getDay() + 6) % 7; // Monday first
+      matrix[day]![value.getHours()]! += 1;
+      total += 1;
+    }
+    let max = 0;
+    for (const row of matrix) for (const cell of row) max = Math.max(max, cell);
+    return { matrix, max, total, days };
+  },
+
+  /**
+   * Daily series behind each metric, so dashboard tiles can carry a sparkline.
+   * Metrics without a meaningful time series simply have none.
+   */
+  async metricSeries(ctx: RequestContext, days = 14) {
+    assertCan(ctx, "analytics.view");
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    // `calls` is an operational record with no soft delete, so the archive
+    // filter is applied per table rather than assumed.
+    const bucketed = async (table: PgTable, column: PgColumn, deletedAt?: PgColumn) => {
+      const where = deletedAt ? and(isNull(deletedAt), gte(column, since)) : gte(column, since);
+      const rows = await db
+        .select({ day: sql<string>`to_char(date_trunc('day', ${column}), 'YYYY-MM-DD')`, value: count() })
+        .from(table)
+        .where(where)
+        .groupBy(sql`date_trunc('day', ${column})`)
+        .orderBy(sql`date_trunc('day', ${column})`);
+      return rows.map((row) => ({ day: row.day, value: Number(row.value) }));
+    };
+
+    const [incidentRows, taskRows, reportRows, callRows, evidenceRows] = await Promise.all([
+      bucketed(incidents, incidents.createdAt, incidents.deletedAt),
+      bucketed(tasks, tasks.createdAt, tasks.deletedAt),
+      bucketed(reports, reports.createdAt, reports.deletedAt),
+      bucketed(calls, calls.receivedAt),
+      bucketed(evidence, evidence.createdAt, evidence.deletedAt),
+    ]);
+
+    // Fill gaps so every series has one point per day.
+    const axis: string[] = [];
+    for (let offset = days - 1; offset >= 0; offset -= 1) {
+      const date = new Date(Date.now() - offset * 24 * 60 * 60 * 1000);
+      axis.push(date.toISOString().slice(0, 10));
+    }
+    const align = (rows: Array<{ day: string; value: number }>) => {
+      const map = new Map(rows.map((row) => [row.day, row.value]));
+      return axis.map((day) => map.get(day) ?? 0);
+    };
+
+    return {
+      days: axis,
+      series: {
+        activeIncidents: align(incidentRows),
+        incidentsThisWeek: align(incidentRows),
+        openTasks: align(taskRows),
+        pendingReports: align(reportRows),
+        evidenceInCustody: align(evidenceRows),
+        activeCalls: align(callRows),
+      } as Record<string, number[]>,
+    };
   },
 
   async incidentTrend(ctx: RequestContext, days = 14) {

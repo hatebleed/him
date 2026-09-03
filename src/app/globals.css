@@ -203,3 +203,284 @@
     color: #000 !important;
   }
 }
+
+/* ===========================================================================
+   Operations console design language.
+
+   A data-dense console look rather than a generic dashboard: notched panel
+   frames, hairline sector grids, HUD corner brackets, monospace figures and a
+   signal palette (live / hot / warn / ok) that reads at a glance from across a
+   room. Everything is built from the theme variables above, so re-branding and
+   light mode still work without touching a component.
+   =========================================================================== */
+
+@layer base {
+  :root {
+    --signal-live: 190 95% 55%;
+    --signal-hot: 340 85% 60%;
+    --signal-warn: 38 95% 58%;
+    --signal-ok: 150 75% 48%;
+    --signal-idle: 220 12% 45%;
+
+    --hud-line: 195 80% 70%;
+    --grid-line: 200 60% 60%;
+    --notch: 10px;
+    --console-glow: 0 0 0 1px hsl(var(--hud-line) / 0.14), 0 0 24px -6px hsl(var(--primary) / 0.35);
+  }
+
+  [data-theme="light"] {
+    --signal-live: 199 89% 42%;
+    --signal-hot: 340 75% 48%;
+    --signal-warn: 32 90% 45%;
+    --signal-ok: 152 60% 36%;
+    --hud-line: 205 60% 40%;
+    --grid-line: 205 40% 55%;
+    --console-glow: 0 0 0 1px hsl(var(--hud-line) / 0.12), 0 0 20px -8px hsl(var(--primary) / 0.25);
+  }
+}
+
+@layer components {
+  /* ---- Surfaces -------------------------------------------------------- */
+
+  /* Angular panel: cut corners, hairline border, faint top light. */
+  .ops-frame {
+    position: relative;
+    background:
+      linear-gradient(180deg, hsl(var(--hud-line) / 0.05), transparent 42%),
+      hsl(var(--card) / 0.92);
+    border: 1px solid hsl(var(--border));
+    clip-path: polygon(
+      var(--notch) 0,
+      100% 0,
+      100% calc(100% - var(--notch)),
+      calc(100% - var(--notch)) 100%,
+      0 100%,
+      0 var(--notch)
+    );
+  }
+
+  .ops-frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(
+      90deg,
+      hsl(var(--grid-line) / 0.06) 1px,
+      transparent 1px
+    ),
+      linear-gradient(hsl(var(--grid-line) / 0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.7;
+  }
+
+  .ops-frame-glow {
+    box-shadow: var(--console-glow);
+  }
+
+  /* Targeting brackets in the corners of a panel. */
+  .ops-brackets::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    pointer-events: none;
+    background:
+      linear-gradient(hsl(var(--hud-line) / 0.5), hsl(var(--hud-line) / 0.5)) left top / 12px 1px no-repeat,
+      linear-gradient(hsl(var(--hud-line) / 0.5), hsl(var(--hud-line) / 0.5)) left top / 1px 12px no-repeat,
+      linear-gradient(hsl(var(--hud-line) / 0.5), hsl(var(--hud-line) / 0.5)) right bottom / 12px 1px no-repeat,
+      linear-gradient(hsl(var(--hud-line) / 0.5), hsl(var(--hud-line) / 0.5)) right bottom / 1px 12px no-repeat;
+    opacity: 0.55;
+  }
+
+  /* Console backdrop: sector grid fading out towards the bottom. */
+  .ops-backdrop {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .ops-backdrop::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: linear-gradient(
+        90deg,
+        hsl(var(--grid-line) / 0.07) 1px,
+        transparent 1px
+      ),
+      linear-gradient(hsl(var(--grid-line) / 0.07) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(120% 90% at 50% 0%, black, transparent 78%);
+  }
+
+  /* Slow horizontal sweep used on live surfaces. */
+  .ops-scanline {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ops-scanline::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 32%;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      hsl(var(--signal-live) / 0.07),
+      transparent
+    );
+    animation: ops-scan 7s linear infinite;
+  }
+
+  /* ---- Type ------------------------------------------------------------ */
+
+  /* Figures, references and identifiers: fixed width, never jitters. */
+  .data-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  .ops-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* ---- Signal indicators ----------------------------------------------- */
+
+  .signal-dot {
+    position: relative;
+    display: inline-block;
+    height: 8px;
+    width: 8px;
+    border-radius: 9999px;
+    background: hsl(var(--signal-idle));
+    box-shadow: 0 0 0 3px hsl(var(--signal-idle) / 0.18);
+    flex: none;
+  }
+
+  .signal-dot[data-signal="live"],
+  .signal-dot[data-signal="ok"] {
+    background: hsl(var(--signal-ok));
+    box-shadow: 0 0 0 3px hsl(var(--signal-ok) / 0.2);
+  }
+
+  .signal-dot[data-signal="warn"] {
+    background: hsl(var(--signal-warn));
+    box-shadow: 0 0 0 3px hsl(var(--signal-warn) / 0.2);
+  }
+
+  .signal-dot[data-signal="hot"] {
+    background: hsl(var(--signal-hot));
+    box-shadow: 0 0 0 3px hsl(var(--signal-hot) / 0.22);
+  }
+
+  .signal-dot[data-pulse="true"]::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 9999px;
+    border: 1px solid currentColor;
+    color: inherit;
+    animation: ops-pulse-ring 1.9s ease-out infinite;
+  }
+
+  .signal-text-live { color: hsl(var(--signal-ok)); }
+  .signal-text-hot { color: hsl(var(--signal-hot)); }
+  .signal-text-warn { color: hsl(var(--signal-warn)); }
+  .signal-text-idle { color: hsl(var(--signal-idle)); }
+
+  /* ---- Structure ------------------------------------------------------- */
+
+  .ops-divider {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      hsl(var(--border)),
+      hsl(var(--hud-line) / 0.35),
+      transparent
+    );
+  }
+
+  .ops-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .ops-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+  }
+
+  .ops-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@keyframes ops-scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(320%);
+  }
+}
+
+@keyframes ops-pulse-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ops-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ops-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ops-rise {
+  animation: ops-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ops-sweep {
+  transform-origin: center;
+  animation: ops-sweep 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ops-scanline::after,
+  .ops-sweep,
+  .ops-rise,
+  .signal-dot[data-pulse="true"]::after {
+    animation: none !important;
+  }
+}

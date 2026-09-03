@@ -62,7 +62,7 @@ export function Sidebar({
   return (
     <div className="flex h-full flex-col">
       <div className={cn("flex h-14 items-center gap-2 border-b border-sidebar-border px-3", collapsed && "justify-center px-0")}>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground shadow-[var(--console-glow)]">
           {(data.config.branding.organisationShort ?? "OP").slice(0, 3).toUpperCase()}
         </div>
         {!collapsed ? (
@@ -182,11 +182,17 @@ export function SidebarContent({
                 onClick={onNavigate}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
+                  "group relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
                   active && "bg-sidebar-accent font-medium text-foreground",
                   collapsed && "justify-center px-0",
                 )}
               >
+                {active ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-[hsl(var(--signal-live))] shadow-[0_0_8px_hsl(var(--signal-live)/0.8)]"
+                  />
+                ) : null}
                 <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
                 {!collapsed ? <span className="truncate">{label}</span> : null}
               </Link>

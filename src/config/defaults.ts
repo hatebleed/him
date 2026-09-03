@@ -394,13 +394,16 @@ export type NavigationSeed = {
 export const DEFAULT_NAVIGATION: NavigationSeed[] = [
   { key: "nav.dashboard", label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard", moduleKey: "dashboard", permission: "dashboard.view", group: "main", sortOrder: 10, isSystem: true },
   { key: "nav.operations", label: "Operations", href: "/operations", icon: "Activity", moduleKey: "operations", permission: "dispatch.view", group: "main", sortOrder: 20 },
+  { key: "nav.opsWall", label: "Ops Wall", href: "/ops", icon: "Radar", moduleKey: "ops-wall", permission: "dispatch.view", group: "main", sortOrder: 25 },
   { key: "nav.dispatch", label: "Dispatch", href: "/dispatch", icon: "RadioTower", moduleKey: "dispatch", permission: "dispatch.view", group: "main", sortOrder: 30 },
+  { key: "nav.briefing", label: "Briefing", href: "/briefing", icon: "ClipboardList", moduleKey: "briefing", permission: "dispatch.view", group: "main", sortOrder: 35 },
   { key: "nav.units", label: "Units", href: "/units", icon: "Radio", moduleKey: "units", permission: "units.view", group: "main", sortOrder: 40 },
   { key: "nav.incidents", label: "Incidents", href: "/incidents", icon: "FileText", moduleKey: "incidents", permission: "incidents.view", group: "records", sortOrder: 50 },
   { key: "nav.cases", label: "Cases", href: "/cases", icon: "Briefcase", moduleKey: "cases", permission: "cases.view", group: "records", sortOrder: 60 },
   { key: "nav.people", label: "People", href: "/people", icon: "Users", moduleKey: "people", permission: "people.view", group: "records", sortOrder: 70 },
   { key: "nav.vehicles", label: "Vehicles", href: "/vehicles", icon: "Car", moduleKey: "vehicles", permission: "vehicles.view", group: "records", sortOrder: 80 },
-  { key: "nav.reports", label: "Reports", href: "/reports", icon: "FileCheck", moduleKey: "reports", permission: "reports.view", group: "records", sortOrder: 90 },
+  { key: "nav.associations", label: "Associations", href: "/associations", icon: "Network", moduleKey: "associations", permission: "search.use", group: "records", sortOrder: 95 },
+  { key: "nav.reports", label: "Reports", href: "/reports", icon: "FileCheck", moduleKey: "reports", permission: "reports.view", group: "records", sortOrder: 100 },
   { key: "nav.evidence", label: "Evidence", href: "/evidence", icon: "Boxes", moduleKey: "evidence", permission: "evidence.view", group: "records", sortOrder: 100 },
   { key: "nav.tasks", label: "Tasks", href: "/tasks", icon: "CheckSquare", moduleKey: "tasks", permission: "tasks.view", group: "work", sortOrder: 110 },
   { key: "nav.warrants", label: "Warrants", href: "/warrants", icon: "Gavel", moduleKey: "warrants", permission: "warrants.view", group: "work", sortOrder: 120 },
@@ -437,6 +440,7 @@ export const DEFAULT_DASHBOARD_WIDGETS: WidgetSeed[] = [
   { type: "chart.incidentTrend", title: "Incident Trend", size: "large", x: 0, y: 5, w: 4, h: 2 },
   { type: "list.notifications", title: "Notifications", size: "medium", x: 0, y: 7, w: 2, h: 2 },
   { type: "list.alerts", title: "Active Alerts", size: "medium", x: 2, y: 7, w: 2, h: 2 },
+  { type: "chart.temporalHeatmap", title: "Demand By Day And Hour", size: "large", x: 0, y: 9, w: 4, h: 2 },
 ];
 
 export const WIDGET_CATALOGUE: Array<{ type: string; label: string; description: string; minW: number; minH: number }> = [
@@ -455,5 +459,48 @@ export const WIDGET_CATALOGUE: Array<{ type: string; label: string; description:
   { type: "list.pendingReports", label: "Pending reports", description: "Reports awaiting review.", minW: 2, minH: 2 },
   { type: "chart.incidentTrend", label: "Incident trend", description: "Incidents created per day (last 14 days).", minW: 3, minH: 2 },
   { type: "chart.incidentPriority", label: "Incidents by priority", description: "Distribution of open incidents by priority.", minW: 2, minH: 2 },
+  { type: "chart.temporalHeatmap", label: "Demand by day and hour", description: "When incidents happen, binned by weekday and hour.", minW: 3, minH: 2 },
+  { type: "ops.sectorMap", label: "Sector view", description: "Live schematic map of units and open incidents.", minW: 2, minH: 2 },
   { type: "quickActions", label: "Quick actions", description: "Shortcuts to common record creation.", minW: 2, minH: 1 },
 ];
+
+// ---------------------------------------------------------------------------
+// Operating area
+// ---------------------------------------------------------------------------
+
+/**
+ * Districts of the demonstration city with their centroids.
+ *
+ * The console draws a schematic sector view rather than a street map, so all
+ * that is needed is a stable centre for each district. The seeder uses the same
+ * table to place records, which keeps the demo data and the map consistent.
+ */
+export const SECTOR_DISTRICTS: Array<{ name: string; latitude: number; longitude: number }> = [
+  { name: "Northgate", latitude: 51.5273, longitude: -0.1466 },
+  { name: "Ashcombe", latitude: 51.5421, longitude: -0.0985 },
+  { name: "Kestrel Bay", latitude: 51.5089, longitude: -0.0612 },
+  { name: "Ridgeway", latitude: 51.5194, longitude: -0.1745 },
+  { name: "Harbour", latitude: 51.4962, longitude: -0.1089 },
+  { name: "Silverport", latitude: 51.5117, longitude: -0.1841 },
+  { name: "Ferndale", latitude: 51.5561, longitude: -0.1302 },
+  { name: "South Quay", latitude: 51.4837, longitude: -0.0731 },
+];
+
+/** Centroid lookup by (case-insensitive) district name. */
+export function districtCentroid(name: string | null | undefined): { name: string; latitude: number; longitude: number } | null {
+  if (!name) return null;
+  const needle = name.trim().toLowerCase();
+  return SECTOR_DISTRICTS.find((district) => district.name.toLowerCase() === needle) ?? null;
+}
+
+/**
+ * District mentioned in free text.
+ *
+ * Seeded records carry a location as text ("12 Harbour Road, Northgate"); this
+ * resolves it to the sector the console plots, so the map and the records agree.
+ */
+export function districtFromText(text: string | null | undefined): { name: string; latitude: number; longitude: number } | null {
+  if (!text) return null;
+  const needle = text.toLowerCase();
+  return SECTOR_DISTRICTS.find((district) => needle.includes(district.name.toLowerCase())) ?? null;
+}

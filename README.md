@@ -12,6 +12,7 @@ Everything in this repository is fictional demonstration data. No real personal 
 |---|---|
 | **Records** | People (identifiers, contacts, addresses), vehicles, incidents, cases, reports with immutable version history, tasks with comments, warrants, alerts, BOLOs, evidence with append-only chain of custody, units |
 | **Operations** | Dispatch console (create calls, assign units, unit status, escalate call → incident), live operations board, unit roster with inline status changes |
+| **Operations console** | **Ops wall** (schematic sector view with live units and open incidents, readiness gauges, event ticker, demand heatmap), **association graph** (multi-hop link analysis across people, vehicles, incidents, cases and evidence), **shift briefing** (generated roll-call handover for any 1–72 hour period) |
 | **Communications** | Channels and direct messages with real persistence, read state and mentions |
 | **Search** | Global, permission-filtered search across every record type, plus a command palette (<kbd>Cmd/Ctrl</kbd>+<kbd>K</kbd>) with page shortcuts |
 | **Dashboards** | Per-user, database-stored widget layouts: metrics, lists, charts, quick actions; widgets are added/removed/reset from the UI |
@@ -19,6 +20,39 @@ Everything in this repository is fictional demonstration data. No real personal 
 | **Record infrastructure** | One reusable detail system: overview, **relationships** (generic record linker), **notes**, **attachments** (validated uploads), **timeline** and **audit** tabs on every record |
 | **Administration** | Users, roles & permissions, departments, units, modules, navigation, custom fields, forms, workflows, statuses, categories, terminology, branding, appearance, notification settings, system settings, import/export, audit trail |
 | **Automation** | Workflow engine (trigger → conditions → actions) executed server-side: change status, assign user/department, create task, notify, require approval, write timeline events; every run is logged |
+
+---
+
+## 1.1 Operations console
+
+Three surfaces built on top of the same permission-gated services, rendered in a
+distinct console design language (notched panels, HUD brackets, sector grid,
+monospace figures and a signal palette for live / warn / hot / ok):
+
+| Surface | Route | API | Permission |
+|---|---|---|---|
+| Ops wall | `/ops` | `GET /api/ops-wall` | `dispatch.view` |
+| Associations | `/associations` | `GET /api/link-analysis?type=…&id=…&depth=1\|2` | `search.use` |
+| Shift briefing | `/briefing` | `GET /api/briefing?hours=12` | `dispatch.view` |
+
+- **Ops wall** — one payload for the live console: units with positions, open
+  incidents, active calls with assigned callsigns, readiness and dispatch
+  metrics, a day × hour demand heatmap, and the latest audit events. Polled
+  every 15s and invalidated instantly by the SSE bridge.
+- **Associations** — pick any record and the server walks its real links
+  (participation, vehicle involvement, case membership, recorded
+  relationships) up to two hops. Record types the operator cannot open are
+  dropped server-side, so the graph can never be used to reach a record they
+  could not open. Nodes open the record itself.
+- **Shift briefing** — assembled from live records, never typed in: what
+  happened in the period, what is still open (carry-over, not just period
+  activity), active BOLOs, warrants, alerts, repeat involvement, the unit
+  roster and reports submitted. Printable.
+
+The design language lives in `src/components/ops/*` and the console layer of
+`src/app/globals.css`, and is built entirely from the existing theme variables -
+re-branding and light mode keep working. Two widgets (**Demand by day and hour**,
+**Sector view**) are available in the dashboard catalogue and default layout.
 
 ---
 
@@ -244,18 +278,18 @@ Password for every seeded account: **`DemoPass123!`**
 ## 9. Testing
 
 ```bash
-npm test                                   # unit + integration + security (64 tests)
+npm test                                   # unit + integration + security (72 tests)
 npm run dev &                              # or npm start
-RUN_E2E=1 npm run test:e2e                 # 10-step acceptance journey + cookie/CSRF over HTTP
+RUN_E2E=1 npm run test:e2e                 # acceptance journey + operations console + cookie/CSRF over HTTP
 RUN_E2E=1 E2E_BASE_URL=http://host:3000 npm run test:e2e
 ```
 
 | Suite | Covers |
 |---|---|
-| `tests/unit` | Conditional-rule engine, validation schemas, shared utilities, error envelope, password policy, **session cookie policy** (HTTPS, proxies, embedded frames, overrides), **cross-site request forgery guard** |
+| `tests/unit` | Conditional-rule engine, validation schemas, shared utilities, error envelope, password policy, **session cookie policy** (HTTPS, proxies, embedded frames, overrides), **cross-site request forgery guard**, **console geometry** (sector projection, declutter, temporal binning, deterministic graph layout) |
 | `tests/integration` | Real services against the real database: permissions, person creation with timeline/audit, incident linking, report lifecycle and versioning, custom-field validation, configuration reads |
 | `tests/security` | Password hashing/salting/verification, token hashing, upload magic-byte and size validation, server-side authorisation, role-permission guarantees |
-| `tests/e2e` | The full journey: sign in → shell → search → create/link person + vehicle + incident → write/submit/approve report → workflow notification → timeline → audit → admin (custom field, terminology, module toggle, role permissions) → 403 for a read-only user |
+| `tests/e2e` | The full journey: sign in → shell → search → create/link person + vehicle + incident → write/submit/approve report → workflow notification → timeline → audit → admin (custom field, terminology, module toggle, role permissions) → 403 for a read-only user; plus the operations console (ops wall payload, briefing, association graph, temporal analytics, page rendering) |
 
 The end-to-end suite also covers the cookie matrix (`SameSite=None; Secure; Partitioned` when embedded, `Lax` on plain HTTP), cross-site write rejection, and - under `AUTH_MODE=none` - loading the application with no credentials while every credential route 404s. Mode-specific cases skip themselves, so the suite is correct against either configuration. It is skipped unless `RUN_E2E=1` because it needs a live server and a seeded database.
 

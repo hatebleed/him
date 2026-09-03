@@ -21,6 +21,10 @@ import { cn, formatRelative } from "@/lib/utils";
 import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState, LinkButton, Skeleton } from "@/components/ui/primitives";
 import { useSession } from "@/components/providers/session-provider";
 import { Section } from "@/components/layout/page-header";
+import { Sparkline } from "@/components/ops/gauges";
+import { TemporalHeatmap } from "@/components/ops/heatmap";
+import { OpsPanel } from "@/components/ops/frame";
+import { SectorMap, type MapDistrict, type MapIncident, type MapUnit } from "@/components/ops/sector-map";
 
 export type WidgetType = string;
 
@@ -31,6 +35,8 @@ export type DashboardData = {
   trend: Array<{ label: string; value: number }>;
   priority: Array<{ label: string; value: number }>;
   activity: Array<{ id: string; recordType: string; recordId: string; type: string; message: string; actorName: string | null; occurredAt: string }>;
+  heatmap: { matrix: number[][]; max: number; total: number; days: number } | null;
+  series: { days: string[]; series: Record<string, number[]> } | null;
 };
 
 export type WidgetInstance = {
@@ -154,6 +160,32 @@ export function DashboardWidget({
     );
   }
 
+  if (widget.type === "chart.temporalHeatmap") {
+    const heatmap = data?.heatmap;
+    return (
+      <WidgetFrame title={widget.title ?? "Demand by day and hour"} onRemove={onRemove} className={spanClass(widget)}>
+        {loading || !heatmap ? (
+          <Skeleton className="h-40 w-full" />
+        ) : (
+          <>
+            <TemporalHeatmap matrix={heatmap.matrix} max={heatmap.max} showLabels />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {heatmap.total} records over the last {heatmap.days} days
+            </p>
+          </>
+        )}
+      </WidgetFrame>
+    );
+  }
+
+  if (widget.type === "ops.sectorMap") {
+    return (
+      <WidgetFrame title={widget.title ?? "Sector view"} onRemove={onRemove} className={spanClass(widget)} href="/ops">
+        <SectorMapWidget />
+      </WidgetFrame>
+    );
+  }
+
   if (widget.type === "quickActions") {
     return (
       <WidgetFrame title={widget.title ?? "Quick actions"} onRemove={onRemove} className={spanClass(widget)}>
@@ -182,6 +214,7 @@ function MetricWidget({
 }) {
   const definition = METRIC_DEFINITIONS[widget.type];
   const metric = definition ? data?.metrics?.[definition.key] : undefined;
+  const series = definition ? data?.series?.series?.[definition.key] : undefined;
   const body = (
     <div className="flex items-start justify-between">
       <div>
@@ -193,6 +226,11 @@ function MetricWidget({
         )}
         {metric?.hint ? <p className="mt-1 text-xs text-muted-foreground">{metric.hint}</p> : null}
       </div>
+      {!loading && series && series.length > 1 ? (
+        <div className="ml-3 mt-1 shrink-0 opacity-80">
+          <Sparkline values={series} className="h-7 w-20" />
+        </div>
+      ) : null}
       {definition?.icon ? (
         <span className="rounded-md border border-border bg-secondary/50 p-2 text-muted-foreground [&_svg]:h-4 [&_svg]:w-4">{definition.icon}</span>
       ) : null}
@@ -228,6 +266,28 @@ function QuickActions() {
         </LinkButton>
       ))}
     </div>
+  );
+}
+
+/** Compact live sector view for the dashboard (dispatch visibility only). */
+function SectorMapWidget() {
+  const { can } = useSession();
+  const enabled = can("dispatch.view");
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", "ops-wall"],
+    queryFn: () =>
+      api.get<{ districts: MapDistrict[]; units: MapUnit[]; incidents: MapIncident[] }>("/api/ops-wall"),
+    enabled,
+    refetchInterval: 30_000,
+  });
+
+  if (!enabled) return <EmptyState title="Not available" description="This widget needs dispatch visibility." />;
+  if (isLoading || !data) return <Skeleton className="h-52 w-full" />;
+
+  return (
+    <OpsPanel dense bodyClassName="p-1">
+      <SectorMap units={data.units} incidents={data.incidents} districts={data.districts} height={240} live />
+    </OpsPanel>
   );
 }
 
