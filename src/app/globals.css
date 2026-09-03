@@ -1,0 +1,205 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Theme tokens.
+   Colours are declared once here (never scattered through components) so
+   administrators can re-brand the whole application by changing variables.
+   --------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    --radius: 0.6rem;
+
+    --background: 222 47% 5%;
+    --foreground: 210 40% 96%;
+
+    --card: 222 44% 7%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 222 44% 8%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 8%;
+
+    --secondary: 217 33% 14%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 217 33% 13%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 187 92% 48%;
+    --accent-foreground: 222 47% 8%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --info: 199 89% 48%;
+
+    --border: 217 33% 16%;
+    --input: 217 33% 18%;
+    --ring: 217 91% 60%;
+
+    --sidebar: 222 47% 6%;
+    --sidebar-foreground: 215 20% 75%;
+    --sidebar-accent: 217 33% 13%;
+    --sidebar-border: 217 33% 14%;
+
+    --shadow-color: 222 47% 3%;
+  }
+
+  .theme-light,
+  [data-theme="light"] {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 217 91% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 32% 94%;
+    --secondary-foreground: 222 47% 15%;
+
+    --muted: 214 32% 94%;
+    --muted-foreground: 215 16% 42%;
+
+    --accent: 187 92% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --border: 214 25% 88%;
+    --input: 214 25% 86%;
+    --ring: 217 91% 50%;
+
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 215 16% 35%;
+    --sidebar-accent: 214 32% 95%;
+    --sidebar-border: 214 25% 90%;
+
+    --shadow-color: 215 25% 27%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    @apply bg-primary/30;
+  }
+
+  /* Scrollbars: slim and unobtrusive, matching the dark shell. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-transparent bg-muted-foreground/30 bg-clip-content;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50 bg-clip-content;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Density modes, selectable per organisation. */
+[data-density="compact"] {
+  --density-y: 0.25rem;
+  --density-x: 0.5rem;
+}
+[data-density="comfortable"] {
+  --density-y: 0.5rem;
+  --density-x: 0.75rem;
+}
+[data-density="spacious"] {
+  --density-y: 0.75rem;
+  --density-x: 1rem;
+}
+
+@layer components {
+  .surface {
+    @apply rounded-lg border border-border/70 bg-card/70 backdrop-blur-sm;
+  }
+
+  .grid-noise {
+    background-image: radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+
+  .hero-glow {
+    background: radial-gradient(60% 80% at 20% 0%, hsl(var(--primary) / 0.18) 0%, transparent 60%),
+      radial-gradient(50% 60% at 100% 0%, hsl(var(--accent) / 0.12) 0%, transparent 55%);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .line-clamp-1-safe {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.06), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+/* Printable record views (reports, incidents). */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.pgdata
+storage/uploads/*
+tests
+coverage
+*.log
+.env
+.env.local
